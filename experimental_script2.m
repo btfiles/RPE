@@ -104,7 +104,16 @@ button_time = sort([hit_responses fa_responses]);
 % 
 
 %% Run the MLE2 estimator
+e = rpe.RSVPPerformanceML2(stim_time, stim_label, button_time);
 
+% reduce time resolution
+e.time_resolution = 0.01;
+t0 = tic;
+[hr_lr, far_lr] = e.runEstimates();
+fprintf(1, 'Low res mle2 took %g s\n', toc(t0));
+
+fprintf(1, 'Estimates:\nHR\t%.3f\nFAR\t%.3f\nMU\t%f\nSIG\t%f\nTAU\t%f\n\n', ...
+    hr_lr, far_lr, e.mu, e.sigma, e.tau);
 
 %% Visualize the response time distributions
 figure('Name', 'Simulated response distribution');
