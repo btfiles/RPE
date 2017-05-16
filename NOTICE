@@ -1,0 +1,24 @@
+A software package implementing the regression method for estimating 
+performance in a rapid serial visual presentation target detection task of 
+Files & Marathe (2016).
+
+If you use this code for any publication, please cite the following paper:
+
+Files, B. T., & Marathe, A. R. (2016). A regression method for estimating 
+    performance in a rapid serial visual presentation target detection 
+    task. Journal of Neuroscience Methods, 258, 114-123. 
+    http://doi.org/10.1016/j.jneumeth.2015.11.003
+
+
+This project was supported by The U.S. Army Research Laboratory under a
+Director's Strategic Research Initiative entitled "Heterogeneous Systems
+for Information Variable Environments (HIVE)," an appointment to the U.S.
+Army Research Laboratory Postdoctoral Fellowship program administered by
+the Oak Ridge Associated Universities through a cooperative agreement
+with the U.S. Army Research Laboratory and the Office of the Secretary of
+Defense ARPI program MIPR DWAM31168. The views and conclusions contained
+in this document are those of the authors and should not be interpreted
+as representing the official policies, either expressed or implied, of
+the Army Research Laboratory or U.S. Government. The U.S. Government is
+authorized to reproduce and distribute reprints for Government purposes
+notwithstanding any copyright notation herein.
