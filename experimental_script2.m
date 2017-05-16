@@ -126,7 +126,8 @@ x = 0:.001:1.5;
 pdf = rpe.exGaussPdf(x, mu, sigma, tau);
 npdf = numel(button_time)*pdf*diff(edg([1 2]));
 hold on;
-plot(x, npdf, 'r');
+h = plot(x, npdf, 'r');
+legend(h, sprintf('True dist: EXG(%.3f, %.3f, %.3f)', mu, sigma, tau));
 title('true distribution')
 
 subplot(2,1,2);
@@ -135,7 +136,15 @@ epdf = e.pdf_fcn(x);
 enpdf = numel(e.rt_list)*epdf*diff(edg([1 2]));
 bar(edg, eN, 'histc');
 hold on;
-plot(x, enpdf, 'r');
+h(1) = plot(x, enpdf, 'r');
+% add the old way distribution:
+f = rpe.RSVPPerformanceEstimator(stim_time, stim_label, button_time);
+f.estimatePdf();
+h(2) = plot(x, numel(f.rt_list)*f.pdf_fcn(x)*diff(edg([1 2])), 'g--');
+
+legend(h, {sprintf('Mle: EXG(%.3f, %.3f, %.3f)', e.mu, e.sigma, e.tau), ...
+    sprintf('Old: EXG(%.3f, %.3f, %.3f)', f.mu, f.sigma, f.tau)});
+
 title('estimated distribution');
 
 
