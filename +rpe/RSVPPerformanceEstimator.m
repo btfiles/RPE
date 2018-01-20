@@ -204,7 +204,7 @@ classdef RSVPPerformanceEstimator < handle
             %% find stimuli labeled as targets
             tar_times = obj.stimulus_times(obj.stimulus_labels==true);
             %% build a vector of response times
-            rts = zeros(size(tar_times));
+            rts = zeros(size(tar_times), class(tar_times));
             bpt = obj.buttonpress_times;
             rw = obj.response_window;
             % Note: creating local versions of these variables allows

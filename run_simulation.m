@@ -41,7 +41,6 @@ s_tau = 0.15;
 % time resolution of the whole business
 time_res = 0.01; % seconds
 
-
 %% values derived from settings
 % exgaussian random numbers
 exgr = @(sz) normrnd(s_mu, s_sigma, sz) + exprnd(s_tau, sz);

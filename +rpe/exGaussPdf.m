@@ -45,7 +45,11 @@ end
 end
 
 function ok = checkInput(v)
-ok = all([isnumeric(v),~isnan(v),~isinf(v),v>0]);
+checks = [isnumeric(v),~isnan(v),~isinf(v),v>0];
+if any(~checks)
+    warning('Failed check %d!', find(~checks, 1));
+end
+ok = all(checks);
 end
 
 

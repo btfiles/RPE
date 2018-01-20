@@ -61,6 +61,7 @@ win_lo = 0.0;
 win_hi = 1.0; % defines start and stop of window.
 % Other method settings are stored as default member variable values.
 
+
 %% values derived from settings
 % exgaussian random numbers
 exgr = @(sz) normrnd(s_mu, s_sigma, sz) + exprnd(s_tau, sz);

@@ -8,7 +8,10 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
         hr_init = 0.9;
         far_init = 0.01;
         new_opt = optimset('Display', 'iter', 'MaxIter', 400, ...
-            'TolFun', 0.1, 'TolX', 1e-5); % Options for fminsearch.
+            'TolFun', 0.1, 'TolX', 1e-5, 'MaxFunEvals', 2000); % Options for fminsearch.
+        
+        
+        glist = {'stimulus_times', 'pdf_support', 'time_resolution', 't', 'pdf_est'}; % these variables are needed for probability calulations.
     end
     
     methods
@@ -30,22 +33,16 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             % the results using a heuristic to build a response time
             % sample.
             %
-            % It might be more formally correct to treat the parameters of
-            % the response time distribution, but that seems way too
-            % complicated and/or computationally intensive.
+            % In contrast to RSVPerformanceML, rt parameters are treated as
+            % parameters to vary in the likelihood estimation. This
+            % substantially increases runtime.
             %
             % Uses fminsearchbnd from matlab file exchange.
             
             % Work out time bins of width time_resolution (a property of
             % this class) and place responses into their bins
-            t_min = min([min(obj.stimulus_times), min(obj.buttonpress_times)]);
-            t_max = max([max(obj.stimulus_times), max(obj.buttonpress_times)]) + obj.pdf_support;
-            
-            obj.t = t_min:obj.time_resolution:t_max;
-            
-            bpidx = floor((obj.buttonpress_times-t_min)/obj.time_resolution) + 1;
-            bp = false(size(obj.t));
-            bp(bpidx) = true;
+
+            [bp, obj.t] = obj.buildTimeIdx();
             
             % We have a minimizing optimizer, so to get the maximum
             % likelihood estimate, we use -log likelihood. Log likelihood
@@ -57,9 +54,12 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
                 obj.mu; obj.sigma; obj.tau];
             lower_bounds = [0; 0; repmat(obj.time_resolution, 3, 1)];
             upper_bounds = [1; 1; inf(3,1)];
-            o = rpe.fminsearchbnd(fcn, initial_values, lower_bounds, ...
-                upper_bounds, obj.opt);
-
+            [o, ~, exitflag] = rpe.fminsearchbnd(fcn, initial_values, ...
+                lower_bounds, upper_bounds, obj.opt);
+            if exitflag < 1
+                warning('Maximum likelihood solution did not converge!');
+            end
+            
             HR = o(1);
             FAR = o(2);
             
@@ -68,10 +68,27 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             obj.setPdf(exg);
         end
         
+        function [bp, t] = buildTimeIdx(obj)
+            % Computes sample times and converts button press times to
+            % sample idx.
+            
+            t_min = min([min(obj.stimulus_times), min(obj.buttonpress_times)]);
+            t_max = max([max(obj.stimulus_times), max(obj.buttonpress_times)]) + obj.pdf_support;
+            
+            t = t_min:obj.time_resolution:t_max;
+            
+            bpidx = floor((obj.buttonpress_times-t_min)/obj.time_resolution) + 1;
+            bp = false(size(t));
+            bp(bpidx) = true;
+        end
         function llik = logLikelihood(obj, hr, far, exg, bp)
             % bp is a boolean array that is true for time bins with a
             % button press.
             p_resp = pResp(obj, hr, far, exg);
+            
+            % eliminate zeros and ones
+            p_resp(p_resp==0) = eps;
+            p_resp(p_resp==1) = 1-eps;
             
             % doing this without the log results in numerical underflow.
             llik = sum(log(p_resp(bp))) + sum(log(1-p_resp(~bp)));
@@ -112,7 +129,7 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             rra(obj.stimulus_labels==true) = hr;
             
             %% put stimuli in the same time bins as the responses.
-            stim_idx = round(obj.stimulus_times/obj.time_resolution) + 1;
+            stim_idx = round((obj.stimulus_times-obj.t(1))/obj.time_resolution) + 1;
             
             %% Ready to compute probabilities
             % We want the probability of a response in each response time
@@ -125,13 +142,31 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             % time bin; instead we iterate over each stimulus and do a
             % vectorized computation on that time chunk.
             
+            % My attempt to get this to parallelize on the GPU failed. We
+            % need to convince the GPU to compile a kernel that does this,
+            % but it would need some substantial re-writes.
+            
+            %             t0 = tic();
+            %             obj.toGpu();
+            %             stim_idx = gpuArray(stim_idx);
+            %             rra = gpuArray(rra);
+            %             fprintf(1, 'Sending to gpu took %f s.\n', toc(t0));
+            %             t0 = tic;
+            %             [p_idx, p_allc] = arrayfun(@(idx) obj.stimProb(idx, stim_idx, rra), ...
+            %                 1:numel(obj.stimulus_times), 'Uni', false);
+            %             fprintf(1, 'GPU Computation took %f s.\n', toc(t0));
+            %             t0 = tic();
+            %             obj.fromGpu();
+            %             fprintf(1, 'Gathering from gpu took %f s.\n', toc(t0));
+            
             [p_idx, p_allc] = deal(cell(size(obj.stimulus_times)));
+%             t0 = tic();
             parfor iStim = 1:numel(obj.stimulus_times) % candidate for parallelization?
                 
                 % Here we select those stimuli that might contribute to the
                 % probability in the time between the current and the next
                 % stimulus
-                in_hood = (obj.stimulus_times >= (obj.stimulus_times(iStim) - obj.pdf_support)) & ... 
+                in_hood = (obj.stimulus_times >= (obj.stimulus_times(iStim) - obj.pdf_support)) & ...
                     (obj.stimulus_times <= obj.stimulus_times(iStim)); %#ok
                 
                 hood_idx = find(in_hood);
@@ -157,7 +192,7 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
                 p_idx{iStim} = stim_idx(iStim) - 1 + (1:numel(p_local));
                 p_allc{iStim} = p_local;
             end
-            
+%             fprintf(1, 'Probability calc took %f\n', toc(t0));
             % Iterate over the results and compute the full timeline of
             % probabilities.
             p_all = zeros(size(obj.t));
@@ -165,6 +200,47 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
                 p_all(p_idx{iStim}) = p_allc{iStim};
             end
         end
-
+        function toGpu(obj)
+            for i = 1:numel(obj.glist)
+                obj.(obj.glist{i}) = gpuArray(obj.(obj.glist{i}));
+            end
+            
+        end
+        function fromGpu(obj)
+            for i = 1:numel(obj.glist)
+                obj.(obj.glist{i}) = gather(obj.(obj.glist{i}));
+            end
+        end
+        function [idx, allc] = stimProb(obj, iStim, stim_idx, rra)
+            % Here we select those stimuli that might contribute to the
+            % probability in the time between the current and the next
+            % stimulus
+            in_hood = (obj.stimulus_times >= (obj.stimulus_times(iStim) - obj.pdf_support)) & ...
+                (obj.stimulus_times <= obj.stimulus_times(iStim));
+            
+            hood_idx = find(in_hood);
+            t_stim_local = obj.stimulus_times(hood_idx) - obj.stimulus_times(hood_idx(1)); % set first one to zero
+            
+            % and now we need to figure out what part to keep
+            if iStim == numel(obj.stimulus_times)
+                t_next = obj.stimulus_times(end)+obj.pdf_support;
+            else
+                t_next = obj.stimulus_times(iStim+1);
+            end
+            
+            % rebase times to first stimulus in the neighborhood
+            t_min = obj.stimulus_times(iStim) - obj.stimulus_times(hood_idx(1));
+            t_max = min([t_next - obj.stimulus_times(hood_idx(1)), ...
+                obj.stimulus_times(iStim) + obj.pdf_support - obj.stimulus_times(hood_idx(1))]);
+            
+            % get the bit of the probability timeline
+            p_local = pRespLocal(obj, t_stim_local, rra(in_hood), t_min, t_max);
+            
+            % put the result in a cell array for later use (we have to
+            % do this to keep parfor happy)
+            idx = stim_idx(iStim) - 1 + (1:numel(p_local));
+            allc = p_local;
+        end
+        
     end
 end
