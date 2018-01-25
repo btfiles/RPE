@@ -76,7 +76,7 @@ classdef RSVPPerformanceEstimator < handle
     methods
         function obj = RSVPPerformanceEstimator(varargin)
             % Takes 3 arguments: stim_time, stim_lbl, buttonpress_time.
-            if nargin == 0,
+            if nargin == 0
                 return
             end
             
@@ -92,18 +92,21 @@ classdef RSVPPerformanceEstimator < handle
         end
         function [hr, far, hrci, farci] = runEstimates(obj, cialpha)
             % Estimate the rt pdf, HR and FAR.
-            % [hr, far] = updateEstimates()
+            % [hr, far] = runEstimates(obj)
+            %
+            % [hr, far, hrci, farci] = runEstimates(obj, cialpha) also
+            % computes a 1-cialpha confidence interval.
             %
             % See also estimatePdf estimatePerformance
             
-            if nargin < 2,
+            if nargin < 2
                 cialpha = .05;
             end
             
             obj.estimatePdf;
-            if nargout == 2,
+            if nargout == 2
                 [hr, far] = obj.estimatePerformance;
-            elseif nargout == 4,
+            elseif nargout == 4
                 [hr, far, hrci, farci] = obj.estimatePerformance(cialpha);
             end
         end

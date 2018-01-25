@@ -2,6 +2,10 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
     % Use bounded maximum likelihood estimation rather than regression to
     % determine HR and FAR as well as the parameters of the exgaussian.
     %
+    % RSVPPerformanceMAP implements MLE, but much faster. It also differs
+    % because it treats the total number of responses as fixed, so it only
+    % has to estimate HR or FAR, because HR*NTAR + FAR*NNTAR = fixed.
+    %
     % 5/16/2017 BTF
     
     properties
@@ -23,15 +27,13 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             % Estimates performance on a RSVP target detection experiment.
             % [HR, FAR] = estimatePerformance(obj)
             %
-            % Uses maximum likelihood estimation to select the HR and FAR
-            % that result in the highest probability of obtained results.
+            % Uses maximum likelihood estimation to select the HR, FAR, and
+            % response time distribution that result in the highest
+            % probability of obtained results.
             %
             % Here, results means the list of times at which a button was
             % pressed. The generative model treats times of stimulus onset
-            % and their labels as fixed. The parameters of the response
-            % time distribution are also fixed after estimating them from
-            % the results using a heuristic to build a response time
-            % sample.
+            % and their labels as fixed.
             %
             % In contrast to RSVPerformanceML, rt parameters are treated as
             % parameters to vary in the likelihood estimation. This
@@ -41,7 +43,6 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             
             % Work out time bins of width time_resolution (a property of
             % this class) and place responses into their bins
-
             [bp, obj.t] = obj.buildTimeIdx();
             
             % We have a minimizing optimizer, so to get the maximum
@@ -50,10 +51,13 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
             % solutions.
             fcn = @(o) -logLikelihood(obj, o(1), o(2), o(3:5), bp);
             
+            % Setup the bounds for fminsearchbnd.
             initial_values = [obj.hr_init; obj.far_init; ...
                 obj.mu; obj.sigma; obj.tau];
             lower_bounds = [0; 0; repmat(obj.time_resolution, 3, 1)];
             upper_bounds = [1; 1; inf(3,1)];
+            
+            % Do the minimiization
             [o, ~, exitflag] = rpe.fminsearchbnd(fcn, initial_values, ...
                 lower_bounds, upper_bounds, obj.opt);
             if exitflag < 1

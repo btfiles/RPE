@@ -16,7 +16,7 @@ classdef RSVPPerformanceMAP < rpe.RSVPPerformanceBayes
             far = obj.hrfun(hr);
             exg = exp(exg);
             
-            if hr>1 || hr<0 || far>1 || far<0 || any(exg<0)
+            if hr>1 || hr<0 || far>1 || far<0 || any(exg<=0)
                 l = -inf;
             else
                 l = obj.logLikelihood(hr, far, exg, bp);
@@ -34,6 +34,11 @@ classdef RSVPPerformanceMAP < rpe.RSVPPerformanceBayes
             % Here, results means the list of times at which a button was
             % pressed. The generative model treats times of stimulus onset
             % and their labels as fixed.
+            %
+            % [HR, FAR, EF] = estimatePerformance(...) also returns an exit
+            % flag from fminsearch.
+            %
+            % see also fminsearch
             
             % Work out time bins of width time_resolution (a property of
             % this class) and place responses into their bins
