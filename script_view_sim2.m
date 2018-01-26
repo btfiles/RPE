@@ -2,8 +2,8 @@
 
 mthd_lbl = {'win', 'reg', 'mle'};
 col_lbl = {'HR', 'FAR', 'Mu', 'Sigma', 'Tau'};
-load('MLE Sim 2 Data/MLE Sim 2 results workspace.mat');
-close all force
+% load('MLE Sim 2 Data/MLE Sim 2 results workspace.mat');
+% close all force
 %%
 % for jCol = 1:5
 %     figure;

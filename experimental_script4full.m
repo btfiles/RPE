@@ -41,7 +41,7 @@
 % if you want to get a sense of how much variability you can get on
 % repeated runs.
 
-rngSeed = 42;
+rngSeed = 37;
 rng(rngSeed) 
 
 % stimulation settings
