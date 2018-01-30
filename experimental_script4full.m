@@ -52,6 +52,7 @@ n_block = 10; % number of blocks
 pTar = 0.1; % proportion of stimuli that are targets
 
 MAX_ATTEMPT = 4; % Let MLE try to converge this many times before moving on
+DIFF_THRESHOLD = -1; % fit solution should be no worse than 1 log unit of simulated parameters
 
 % exgaussian RT parameters
 %mu = 0.35;
@@ -103,7 +104,7 @@ map_estimates = zeros([size(conditions), nsim]);
 reg_estimates = zeros([size(conditions), nsim]);
 win_estimates = zeros([size(conditions), nsim]);
 [ll_true, ll_estimate, reg_t, ml_t, win_t, converged] = deal(zeros(size(conditions,1), nsim));
-wb = waitbar(0);
+% wb = waitbar(0);
 simcount = 0;
 t0 = tic;
 for iCond = 1:size(conditions,1)
@@ -188,7 +189,7 @@ for iCond = 1:size(conditions,1)
                 in_win_idx = find(in_win & ~claimed_hit);
                 in_win(in_win_idx(2:end)) = false;
             end
-            if any(in_win & ~claimed_hit),
+            if any(in_win & ~claimed_hit)
                 claimed_hit(in_win & ~claimed_hit) = true;
             end
 
@@ -217,14 +218,26 @@ for iCond = 1:size(conditions,1)
         m.use_prior = false;
         m.diag = false;
         
+        % calc log likelihood of simulated parameters
+        ll_true(iCond, iSim) = m.logLikelihood(pHit, pFa, [mu, sigma, tau], m.buildTimeIdx());
+        
+        % try to find an estimate that isn't much worse...
         nattempt = 0;
         exit_flag = 0;
-        while (nattempt < MAX_ATTEMPT && exit_flag ~= 1)
+        good_solution = false;
+        while (nattempt < MAX_ATTEMPT && (exit_flag ~= 1 || good_solution == false))
             [hr_m, far_m, exit_flag] = m.estimatePerformance();
             nattempt = nattempt+1;
+            % Examine log likelihood of obtained solution:
+            ll_estimate(iCond, iSim) = m.logLikelihood(...
+                hr_m, far_m, [m.mu, m.sigma, m.tau], m.buildTimeIdx());
+            good_solution = ll_estimate(iCond, iSim) - ll_true(iCond, iSim) > DIFF_THRESHOLD;
         end
         if exit_flag ~= 1
             warning('After %d attempts, no convergence occured.', nattempt);
+        end
+        if good_solution ~= true
+            warning('Failed to find a good solution after %d attempts.', nattempt);
         end
         converged(iCond, iSim) = exit_flag;
         ml_t(iCond, iSim) = toc(tm);
@@ -240,9 +253,7 @@ for iCond = 1:size(conditions,1)
         % legend({'estimated pdf', 'true pdf', 'rt samples'});
         % title('MAP RTPDF');
         
-        % Examine log likelihood of obtained solution:
-        ll_estimate(iCond, iSim) = m.logLikelihood(hr_m, far_m, [m.mu, m.sigma, m.tau], m.buildTimeIdx());
-        ll_true(iCond, iSim) = m.logLikelihood(pHit, pFa, [mu, sigma, tau], m.buildTimeIdx());
+
         
         % fprintf(1, 'Estimates:\nHR\t%.3f\nFAR\t%.3f\nMU\t%f\nSIG\t%f\nTAU\t%f\n\n', ...
         %     hr_m, far_m, m.mu, m.sigma, m.tau);
@@ -257,4 +268,5 @@ for iCond = 1:size(conditions,1)
         save(['workspaces/' runName '.mat']);
     end
 end
-totalTime = toc(t0)
+totalTime = toc(t0);
+fprintf(1, 'Finished at %s, took %f s.\n', datestr(now), totalTime);

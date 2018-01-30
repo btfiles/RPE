@@ -88,6 +88,12 @@ classdef RSVPPerformanceML2 < rpe.RSVPPerformanceML
         function llik = logLikelihood(obj, hr, far, exg, bp)
             % bp is a boolean array that is true for time bins with a
             % button press.
+            
+            % need time setup, if it isn't
+            if isempty(obj.t)
+                [~, obj.t] = obj.buildTimeIdx();
+            end
+            
             p_resp = pResp(obj, hr, far, exg);
             
             % eliminate zeros and ones

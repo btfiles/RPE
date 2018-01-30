@@ -30,7 +30,7 @@ win_hi = 1.0; % defines start and stop of window.
 % exgaussian random numbers
 exgr = @(sz) max(normrnd(mu, sigma, sz) + exprnd(tau, sz), ones(sz).*rtmin);
 
-nsim = 100;
+nsim = 20;
 
 conditions = [1.0 .001 mu sigma tau];
 
@@ -41,47 +41,55 @@ mu = conditions(iCond, 3);
 sigma = conditions(iCond, 4);
 tau = conditions(iCond, 5);
 
-%% Run the simulation
-% Setup stimulus times
-block_stim = 0:(1/stim_rate):block_length;
-stim_time_mtx = repmat(block_stim(:), 1, n_block);
-blk_add = (0:(n_block-1)).*(block_stim(end) + inter_block_interval);
-stim_time_mtx = bsxfun(@plus, blk_add, stim_time_mtx);
-stim_time = stim_time_mtx(:)';
+%% Initialize
+[converged, ll_estimate, ll_true] = deal(zeros(nsim, 1));
+map_estimates = zeros(5, nsim);
 
-% setup stimulus labels
-nTar = round(numel(stim_time)*pTar);
-lbl = false(size(stim_time));
-lbl(1:nTar) = true;
-stim_label = lbl(randperm(numel(stim_time)));
+for iSim = 1:nsim
+    %% Run the simulation
+    % Setup stimulus times
+    block_stim = 0:(1/stim_rate):block_length;
+    stim_time_mtx = repmat(block_stim(:), 1, n_block);
+    blk_add = (0:(n_block-1)).*(block_stim(end) + inter_block_interval);
+    stim_time_mtx = bsxfun(@plus, blk_add, stim_time_mtx);
+    stim_time = stim_time_mtx(:)';
+    
+    % setup stimulus labels
+    nTar = round(numel(stim_time)*pTar);
+    lbl = false(size(stim_time));
+    lbl(1:nTar) = true;
+    stim_label = lbl(randperm(numel(stim_time)));
+    
+    % setup buttonpresses
+    nHit = round(pHit*sum(stim_label));
+    tar_times = stim_time(stim_label);
+    hit_idx = false(size(tar_times));
+    hit_idx(1:nHit) = true;
+    hit_idx = hit_idx(randperm(numel(hit_idx)));
+    hit_times = tar_times(hit_idx);
+    hit_responses = exgr(size(hit_times)) + hit_times;
+    
+    nFa = round(pFa*sum(~stim_label));
+    nt_times = stim_time(~stim_label);
+    fa_idx = false(size(nt_times));
+    fa_idx(1:nFa) = true;
+    fa_idx = fa_idx(randperm(numel(fa_idx)));
+    fa_times = nt_times(fa_idx);
+    fa_responses = exgr(size(fa_times)) + fa_times;
+    
+    button_time = sort([hit_responses fa_responses]);
+    
+    %% Run the MLE
+    m = rpe.RSVPPerformanceMAP(stim_time, stim_label, button_time);
+    m.time_resolution = 0.01;
+    m.use_prior = false;
+    m.diag = false;
+    
+    [hr_m, far_m, exit_flag] = m.estimatePerformance();
+    converged(iSim) = exit_flag;
+    map_estimates(:, iSim) = [hr_m, far_m, m.mu, m.sigma, m.tau]';
+    ll_estimate(iSim) = m.logLikelihood(hr_m, far_m, [m.mu, m.sigma, m.tau], m.buildTimeIdx());
+    ll_true(iSim) = m.logLikelihood(pHit, pFa, [mu, sigma, tau], m.buildTimeIdx());
+    
 
-% setup buttonpresses
-nHit = round(pHit*sum(stim_label));
-tar_times = stim_time(stim_label);
-hit_idx = false(size(tar_times));
-hit_idx(1:nHit) = true;
-hit_idx = hit_idx(randperm(numel(hit_idx)));
-hit_times = tar_times(hit_idx);
-hit_responses = exgr(size(hit_times)) + hit_times;
-
-nFa = round(pFa*sum(~stim_label));
-nt_times = stim_time(~stim_label);
-fa_idx = false(size(nt_times));
-fa_idx(1:nFa) = true;
-fa_idx = fa_idx(randperm(numel(fa_idx)));
-fa_times = nt_times(fa_idx);
-fa_responses = exgr(size(fa_times)) + fa_times;
-
-button_time = sort([hit_responses fa_responses]);
-
-%% Run the MLE
-m = rpe.RSVPPerformanceMAP(stim_time, stim_label, button_time);
-m.time_resolution = 0.01;
-m.use_prior = false;
-m.diag = false;
-
-[hr_m, far_m, exit_flag] = m.estimatePerformance();
-converged(iCond, iSim) = exit_flag;
-map_estimates(iCond, :, iSim) = [hr_m, far_m, m.mu, m.sigma, m.tau];
-
-
+end

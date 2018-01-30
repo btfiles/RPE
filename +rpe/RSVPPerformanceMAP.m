@@ -65,15 +65,35 @@ classdef RSVPPerformanceMAP < rpe.RSVPPerformanceBayes
                 objective = @(theta) -1*obj.xloglikelihood(theta(1), theta(2:end), bp);
                 warning('Not using priors. This is MLE, not MAP.');
             end
-            for i = 1:100
-                thminit = [obj.prs_h, obj.prs_mu, obj.prs_sig, obj.prs_tau];
-                if ~isinf(objective(thminit))
+            
+            % Sample several initial values.
+            ninit = 10;
+            nretry = 3;
+            tic
+            retry_count = 0;
+            
+            % Try to find some initial values that do not have 0
+            % likelihood.
+            
+            while retry_count < nretry
+                inits = zeros(ninit, 4);
+                res = zeros(ninit, 1);
+                for i = 1:ninit
+                    inits(i,:) = [obj.prs_h, obj.prs_mu, obj.prs_sig, obj.prs_tau];
+                    res(i) = objective(inits(i, :));
+                end
+                if ~all(isinf(res))
                     break
+                else
+                    retry_count = retry_count+1;
                 end
             end
-            if i==100
+            if all(isinf(res))
                 error('could not find a starting spot with lik~=0.');
             end
+            [~, idx] = min(res);
+            thminit = inits(idx, :);
+            
             fprintf(1, 'Initial values: HR=%0.3f, mu=%0.3f, sig=%0.3f, tau=%0.3f\n', ...
                 obj.logistic(thminit(1)), exp(thminit(2:end)));
             fprintf(1, 'Initial objective: %f\n', objective(thminit));

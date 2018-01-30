@@ -13,16 +13,8 @@ function p = gpu_pResp(hr, far, exg, stimulus_times, stimulus_labels, ...
 % HR and FAR.
 % p_all = pResp(obj, hr, far, exg)
 %
-% Calculates the joint probability of one or more responses
-% occurring in each time bin. An object property, kmax, defines
-% the highest-order interaction this computation takes into
-% account. This determines how many stimuli generating a
-% response at a given time bin will be taken into account. If
-% kmax is set to 3, for example, then the possibility that any
-% combination of 3 (but not 4 or more) of however many nearby
-% stimuli might produce a response ocurred simultaneously.
-%
-% This version is attempting to run efficiently on GPU
+% Calculates the joint probability of one or more responses occurring in
+% each time bin as 1-probability of no responses in that time bind.
 
 pdf = rpe.exGaussPdf(0:time_resolution:pdf_support, exg(1), exg(2), exg(3)).*time_resolution;
 
@@ -50,9 +42,13 @@ stim_idx = round((stimulus_times-t_init)/time_resolution) + 1;
 % for i = 1:numel(lp)
 %     p(istart{i}:istop{i}) = lp{i};
 % end
+
+% Can we parse this out s.t. parallel computing helps?
+% No. We cannot.
+
 lp = cell(numel(stim_idx), 1);
 [istart, istop] = deal(zeros(numel(stim_idx), 1));
-for i = 1:numel(stim_idx)
+for i = 1:numel(stim_idx) % Making this parfor doubles proc time.
     [lp{i}, istart(i), istop(i)] = pChunk(i, stim_idx, rra, pdf);
 end
 p = zeros(1, num_t);
