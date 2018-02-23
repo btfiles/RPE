@@ -41,7 +41,7 @@
 % if you want to get a sense of how much variability you can get on
 % repeated runs.
 
-rngSeed = 37;
+rngSeed = 81;
 rng(rngSeed) 
 
 % stimulation settings
@@ -71,7 +71,7 @@ win_hi = 1.0; % defines start and stop of window.
 % exgaussian random numbers
 exgr = @(sz) max(normrnd(mu, sigma, sz) + exprnd(tau, sz), ones(sz).*rtmin);
 
-nsim = 100;
+nsim = 300;
 
  conditions = ...
      [.5 .1 mu sigma tau;
@@ -103,7 +103,7 @@ nsim = 100;
 map_estimates = zeros([size(conditions), nsim]);
 reg_estimates = zeros([size(conditions), nsim]);
 win_estimates = zeros([size(conditions), nsim]);
-[ll_true, ll_estimate, reg_t, ml_t, win_t, converged] = deal(zeros(size(conditions,1), nsim));
+[ll_true, ll_estimate, reg_t, ml_t, win_t, converged, n_attempts] = deal(zeros(size(conditions,1), nsim));
 % wb = waitbar(0);
 simcount = 0;
 t0 = tic;
@@ -240,6 +240,7 @@ for iCond = 1:size(conditions,1)
             warning('Failed to find a good solution after %d attempts.', nattempt);
         end
         converged(iCond, iSim) = exit_flag;
+        n_attempts(iCond, iSim) = nattempt;
         ml_t(iCond, iSim) = toc(tm);
         map_estimates(iCond, :, iSim) = [hr_m, far_m, m.mu, m.sigma, m.tau];
         fprintf(1, 'Finished MLE in %f s (%d attempts)\n', ml_t(iCond, iSim), nattempt);

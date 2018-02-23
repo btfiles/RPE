@@ -26,7 +26,7 @@ col_lbl = {'HR', 'FAR', 'Mu', 'Sigma', 'Tau'};
 
 %% It looks like many (10%-15%) of the MLE results don't converge
 
-cvg_threshold = 0; % difference between likelihood of estimate and true should be greater than this
+cvg_threshold = -1; % difference between likelihood of estimate and true should be greater than this
 
 lld = ll_estimate-ll_true;
 
@@ -194,6 +194,73 @@ xtl = sprintf('(%2.1f, %2.1f)\n', conditions(:,1:2)'.*100);
 set(gca, 'XTick', tickx, 'XTickLabel', xtl, 'XTickLabelRotation', 45);
 linkaxes(axl, 'x');
 xlabel('Simulated Condition (HR, FAR)');
+
+%% Overall summary
+figure;
+for i = 1:2
+    subplot(2,2,i);
+    map_errs = map_estimates-conditions;
+    p_map_errs = squeeze(map_errs(:, i, :))';
+    reg_errs = reg_estimates-conditions;
+    p_reg_errs = squeeze(reg_errs(:, i, :))';
+    win_errs = win_estimates-conditions;
+    p_win_errs = squeeze(win_errs(:, i, :))';
+    
+    boxplot([p_win_errs(:) p_reg_errs(:) p_map_errs(:)], 'colors', clrs, ...
+        'symbol', '.', 'jitter', 0.5, 'datalim', lims(i,:), ...
+        'labels', mthd_lbl, 'notch', 'on');
+    hold on;
+    m = mean([p_win_errs(:) p_reg_errs(:) p_map_errs(:)]);
+    for j = 1:3
+        plot(j, m(j), 'd', 'Color', clrs(j, :), 'MarkerFaceColor', clrs(j,:));
+    end
+    plot(xlim(), [0 0], 'k-');
+    title(col_lbl{i})
+    ylabel('error (proportion)');
+end
+
+for i = 3:5
+    map_errs = map_estimates-conditions;
+    p_map_errs = squeeze(map_errs(:, i, :))';
+    reg_errs = reg_estimates-conditions;
+    p_reg_errs = squeeze(reg_errs(:, i, :))';
+    
+    subplot(2,3,i+1);
+    boxplot([p_reg_errs(:) p_map_errs(:)], 'colors', clrs(2:end, :), ...
+        'symbol', '.', 'jitter', 0.5, 'datalim', lims(i,:), ...
+        'labels', mthd_lbl(2:end), 'notch', 'on');
+    hold on;
+    
+    m = mean([p_reg_errs(:) p_map_errs(:)]);
+    for j = 1:2
+        plot(j, m(j), 'd', 'Color', clrs(j+1, :), 'MarkerFaceColor', clrs(j+1,:));
+    end
+    plot(xlim(), [0 0], 'k-');
+    title(col_lbl{i})
+    ylabel('error (s)');
+end
+
+%% Density summaries?
+errs = {win_errs, reg_errs, map_errs};
+figure;
+for iCol = 1:5
+    if iCol < 3
+        idx = 1:3;
+    else
+        idx = 2:3;
+    end
+    
+    [f, x] = deal(cell(size(idx)));
+    for j = 1:numel(idx)
+        x{j} = linspace(lims(iCol, 1), lims(iCol, 2), 1000);
+        [f{j}] = ksdensity(reshape(errs{idx(j)}(:, iCol, :), [], 1), x{j}, ...
+            'Function', 'pdf');
+    end
+    subplot(5,1,iCol);
+    hold on;
+    cellfun(@plot, x, f);
+    legend(mthd_lbl(idx), 'Location', 'best')
+end
 %%
 f = figure('name', 'RMSE');
 
@@ -225,3 +292,36 @@ for i = 1:5
     legend(mthd_lbl(idx));
     ylabel(col_lbl{i});
 end
+
+%% Tables?
+
+
+rmserr = zeros(3, 5);
+rmserr(1,1:2) = rms(reshape(permute(win_errs(:, 1:2, :), [2, 3, 1]), 2, []), 2)';
+rmserr(1,3:end) = nan;
+rmserr(2, :) = rms(reshape(permute(reg_errs, [2 3 1]), 5, []), 2)';
+rmserr(3, :) = rms(reshape(permute(map_errs, [2 3 1]), 5, []), 2)';
+
+% Overall RMS Error
+rmstbl = array2table(rmserr, 'VariableNames', col_lbl, 'RowNames', mthd_lbl);
+fprintf(1, 'RMSE:\n');
+disp(rmstbl);
+
+meanerr = zeros(3, 5);
+meanerr(1,1:2) = mean(mean(win_errs(:, 1:2, :), 3), 1);
+meanerr(1,3:end) = nan;
+meanerr(2, :) = mean(mean(reg_errs, 3), 1);
+meanerr(3, :) = mean(mean(map_errs, 3), 1);
+
+meantbl = array2table(meanerr, 'VariableNames', col_lbl, 'RowNames', mthd_lbl);
+fprintf(1, 'Mean Error:\n');
+disp(meantbl);
+
+%% Write to file
+timestamp =  datestr(now, 'yyyy-mm-dd-hh-MM-ss');
+
+writetable(rmstbl, sprintf('RMSE%s.csv', timestamp), ...
+    'WriteVariableNames', true, 'WriteRowNames', true);
+
+writetable(meantbl, sprintf('MeanError%s.csv', timestamp), ...
+    'WriteVariableNames', true, 'WriteRowNames', true);
