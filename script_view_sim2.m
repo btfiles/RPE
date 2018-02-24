@@ -1,4 +1,5 @@
 %% Quick visualizations of Jonroy's small simulations
+% Requires loading a result first!
 
 mthd_lbl = {'win', 'reg', 'mle'};
 col_lbl = {'HR', 'FAR', 'Mu', 'Sigma', 'Tau'};
@@ -318,6 +319,7 @@ fprintf(1, 'Mean Error:\n');
 disp(meantbl);
 
 %% Write to file
+return
 timestamp =  datestr(now, 'yyyy-mm-dd-hh-MM-ss');
 
 writetable(rmstbl, sprintf('RMSE%s.csv', timestamp), ...
