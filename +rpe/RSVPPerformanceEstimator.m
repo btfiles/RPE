@@ -53,6 +53,8 @@ classdef RSVPPerformanceEstimator < handle
         time_resolution = 0.001; % resolution of PDF approximation
         response_window = [0.0 1.0]; % response time window for RT estimates
         pdf_support = 1.5; % how long after the stimulus to compute RT PDF
+        
+        t; % member variable for keeping track of experiment time
     end
     
     properties (GetAccess=public, SetAccess=protected)
@@ -139,13 +141,20 @@ classdef RSVPPerformanceEstimator < handle
             % deviation of the normal distribution.
             %
             % These values are fit using maximum likelihood estimation.
-            [obj.mu,obj.sigma,obj.tau] = rpe.fitExGauss(obj.rt_list);
+            [M, S, T] = rpe.fitExGauss(obj.rt_list);
+            obj.setPdf([M, S, T])
+        end
+        function setPdf(obj, exg)
+            % setup the rt pdf
+            obj.mu = exg(1); % mean of the gaussian
+            obj.sigma = exg(2); % standard deviation of the gaussian
+            obj.tau = exg(3); % parameter of the exponential
+            
             obj.pdf_fcn = @(rt) rpe.exGaussPdf(rt, ...
                 obj.mu,obj.sigma,obj.tau);
             
-            %% build a density approximation at requested resolution
-            t = obj.time_resolution:obj.time_resolution:obj.pdf_support;
-            obj.pdf_est = obj.pdf_fcn(t);
+            rtt = obj.time_resolution:obj.time_resolution:obj.pdf_support;
+            obj.pdf_est = obj.pdf_fcn(rtt);
         end
         function [HR, FAR, HRCI, FARCI] = estimatePerformance(obj, alph)
             % Estimate HR and FAR
@@ -158,10 +167,10 @@ classdef RSVPPerformanceEstimator < handle
             
             % Solve for HR and FAR
             %o = obj.beta\[obj.response_scores]';
-            if nargout == 2,
+            if nargout == 2
                 o = regress(obj.response_scores', obj.beta);
             else
-                if nargin < 2,
+                if nargin < 2
                     alph = .05;
                 end
                 [o, ci] = regress(obj.response_scores', obj.beta, alph);
@@ -173,14 +182,14 @@ classdef RSVPPerformanceEstimator < handle
             FAR = o(2);
             
             % Correct HR/FAR
-            if HR > 1,
+            if HR > 1
                 HR = 1;
-            elseif HR < 0,
+            elseif HR < 0
                 HR = 0;
             end
-            if FAR > 1,
+            if FAR > 1
                 FAR = 1;
-            elseif FAR < 0,
+            elseif FAR < 0
                 FAR = 0;
             end
         end
@@ -213,13 +222,13 @@ classdef RSVPPerformanceEstimator < handle
             % Note: creating local versions of these variables allows
             % faster parallel execution.
             
-            parfor iTar = 1:numel(tar_times),
+            parfor iTar = 1:numel(tar_times)
                 tt = tar_times(iTar);
                 resp_idx = find(bpt < tt+rw(2) & bpt > tt+rw(1)); %#ok
-                if numel(resp_idx) == 0,
+                if numel(resp_idx) == 0
                     %miss.
                     continue
-                elseif numel(resp_idx)>1,
+                elseif numel(resp_idx)>1
 %                     warning('RPE:BuildRTDist:MultiResponse',...
 %                         ['The stimulus at time %f is followed by more ',...
 %                         'than one responses (%d). Taking only the ',...
@@ -247,7 +256,7 @@ classdef RSVPPerformanceEstimator < handle
             l_pdf_fcn = obj.pdf_fcn;
             l_pdf_support = obj.pdf_support;
             
-            parfor iStim = 1:numel(ost),
+            parfor iStim = 1:numel(ost)
                 % get si, the stim of interest and sj, the list of stimuli
                 % whos responses could be attributed to si
                 si = ost(iStim);
@@ -260,23 +269,23 @@ classdef RSVPPerformanceEstimator < handle
                 % as hit contributions and fa contributions.
                 b1 = 0;
                 b2 = 0;
-                for jNeighbor = 1:numel(neighbor_times),
+                for jNeighbor = 1:numel(neighbor_times)
                     sj = neighbor_times(jNeighbor);
                     % figure out times of responses that could be generated
                     % by sj and could contribute to attribution of si
                     t_min = max(si, sj);
                     t_max = min(si+mxrt, sj+mxrt);
-                    t = t_min:tr:t_max;
+                    lt = t_min:tr:t_max;
                     
                     % now compute attribution for each t
-                    a = att(t,si, l_pdf_fcn, ost, l_pdf_support); %#ok
+                    a = att(lt,si, l_pdf_fcn, ost, l_pdf_support); %#ok
                     
                     % compute the contribution to si of a response
                     % by sj conditioned on a response by sj.
-                    e = sum(tr.*l_pdf_fcn(t-sj).*a);
+                    e = sum(tr.*l_pdf_fcn(lt-sj).*a);
                     
                     lbl = neighbor_labels(jNeighbor);
-                    if lbl,
+                    if lbl
                         b1 = b1+e;
                     else
                         b2 = b2+e;
@@ -290,17 +299,17 @@ classdef RSVPPerformanceEstimator < handle
         function buildResponseScores(obj)
             % Attribute each response to possible evoking stimuli.
             obj.response_scores = zeros(size(obj.stimulus_times));
-            for iResp = 1:numel(obj.buttonpress_times),
-                t = obj.buttonpress_times(iResp);
-                candidate_idx = obj.stimulus_times < t & ...
-                    obj.stimulus_times > t - obj.pdf_support;
+            for iResp = 1:numel(obj.buttonpress_times)
+                lt = obj.buttonpress_times(iResp);
+                candidate_idx = obj.stimulus_times < lt & ...
+                    obj.stimulus_times > lt - obj.pdf_support;
                 
-                if ~any(candidate_idx),
+                if ~any(candidate_idx)
                     % Rogue buttonpress.
                     continue;
                 end
                 
-                st = t-obj.stimulus_times(candidate_idx);
+                st = lt-obj.stimulus_times(candidate_idx);
                 lik = obj.pdf_fcn(st);
                 scores = lik./sum(lik);
                 obj.response_scores(candidate_idx) = scores + ...
