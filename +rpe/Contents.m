@@ -16,6 +16,8 @@
 %   exGaussPdf               - a probability density function for the exgaussian distribution.
 %   fitExGauss               - Finds the parameters of an ex-gaussian function given an rt distribution
 %   RSVPPerformanceEstimator - An implementation of a regression-based method for estimating hit
+%   RSVPPerformanceBayes     - A very slow Bayesian estimator of RSVP performance
+%   RSVPPerformanceMAP       - Implements maximum likelihood and maximum a-posteriori estimates of RSVP performance
 %
 % Reference
 % Files, B. T., & Marathe, A. R. (2016). A regression method for estimating
@@ -24,7 +26,7 @@
 % http://doi.org/10.1016/j.jneumeth.2015.11.003
 
 % Copyright notice
-%    Copyright 2016 Benjamin T. Files
+%    Copyright 2018 Benjamin T. Files
 % 
 %    Licensed under the Apache License, Version 2.0 (the "License");
 %    you may not use this file except in compliance with the License.

@@ -25,21 +25,33 @@ mu = ip.Results.mu;
 s = ip.Results.s;
 tau = ip.Results.tau;
 
-% check for overflow
-tmp = mu/tau + s^2/(2*tau.^2) - x/tau;
-maxtmp = log(realmax);
-if any(tmp>=maxtmp),
-    warning('RPE:ExGaussPdf:BigExpPart',...
-        'A value exceeded max allowed.  Results will be approximate.');
-    tmp(tmp>=maxtmp) = maxtmp/100;
-end
+% check for overflow FIXME -- maybe switch to normal if tau is small?
+% tmp = mu/tau + s^2/(2*tau.^2) - x/tau;
+% maxtmp = log(realmax);
+% if any(tmp>=maxtmp),
+%     warning('RPE:ExGaussPdf:BigExpPart',...
+%         'A value exceeded max allowed.  Results will be approximate.');
+%     tmp(tmp>=maxtmp) = maxtmp/100;
+% end
 
 % compute the pdf
-pE = exp(tmp);
-pG = normcdf( (x - mu - (s.^2/tau))/abs(s));
-p = (1/tau).*pE.*pG;
+% pE = exp(tmp);
+% pG = normcdf( (x - mu - (s.^2/tau))/abs(s));
+% p = (1/tau).*pE.*pG;
 
-if any (p<=eps),
+% Do computations in log units, convert to prob at the end
+lpE = mu/tau + s^2/(2*tau.^2) - x/tau;
+lpG = log(normcdf( (x - mu - (s.^2/tau))/abs(s)));
+logp = lpE+lpG-log(tau);
+    
+if any(isinf(logp))
+    warning('RPE:ExGaussPdf:Underflow', 'The value of tau is too small relative to s^2. Switching to normal approximation.');
+    p = normpdf(x, mu, s);
+else
+    p = exp(logp);
+end
+
+if any (p<=eps)
     p(p<=eps) = eps;
 end
 end
@@ -54,7 +66,7 @@ end
 
 
 % Copyright notice
-%    Copyright 2016 Benjamin T. Files
+%    Copyright 2018 Benjamin T. Files
 % 
 %    Licensed under the Apache License, Version 2.0 (the "License");
 %    you may not use this file except in compliance with the License.

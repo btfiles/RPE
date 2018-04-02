@@ -1,4 +1,12 @@
 classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
+    % Implements a fully-Bayesian solution based on MCMC sampling from the
+    % posterior. In particular, it uses adaptive Metropolis sampling to
+    % generate draws from the posteriors. This is extremely computationally
+    % intensive relative to MLE and MAP solutions, and it has not been
+    % extensively tested. Unless some properties of the posterior
+    % distribution are of special interest, it is recommended to stick with
+    % the MLE and MAP solutions in rpe.RSVPPerformanceMAP
+    %
     
     properties
         %Hyper-parameters of exgaussian (lognormal)
@@ -15,6 +23,12 @@ classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
         hp_h_delt = 0.0001;
         
         diag = false; % set to true for diagnostic plots
+        
+        %Settings for MWG sampling
+        samp_per_chain = 10000;
+        warmup_per_chain = 10000;
+        batch_update = 100;
+        
     end
     
     properties
@@ -56,12 +70,15 @@ classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
             s = betarnd(alpha, beta);
             s = obj.logit(s);
         end
-        function p = prior(obj, theta)
-            p = prod([...
+        function lp = lprior(obj, theta)
+            lp = sum(log([...
                 obj.pr_h(theta(1)), ...
                 obj.pr_mu(theta(2)), ...
                 obj.pr_sig(theta(3)), ...
-                obj.pr_tau(theta(4))]);
+                obj.pr_tau(theta(4))]));
+        end
+        function p = prior(obj, theta)
+            p = exp(lprior(obj, theta));
         end
         function l = likelihood(obj, hr, exg, bp)
             hr = obj.logistic(hr);
@@ -83,10 +100,6 @@ classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
         function [HR, FAR] = estimatePerformance(obj)
             % Estimates performance on a RSVP target detection experiment.
             % [HR, FAR] = estimatePerformance(obj)
-            %
-            % Uses maximum likelihood estimation to select the HR and FAR
-            % that result in the highest probability of obtained results.
-            %
             % Here, results means the list of times at which a button was
             % pressed. The generative model treats times of stimulus onset
             % and their labels as fixed.
@@ -110,28 +123,35 @@ classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
                 obj.hrfun = @(hr) (N-hr*T)/NT;
             end
             
-            lik = @(theta) obj.likelihood(theta(1), theta(2:end), bp);
-            pr = @(theta) obj.prior(theta);
+            llik = @(theta) obj.xloglikelihood(theta(1), theta(2:end), bp);
+            lpr = @(theta) obj.lprior(theta);
             for i = 1:100
                 thminit = [obj.prs_h, obj.prs_mu, obj.prs_sig, obj.prs_tau];
-                if lik(thminit)~=0
+                if llik(thminit)~=0
                     break
                 end
             end
             if i==100
                 error('could not find a starting spot with lik~=0.');
             end
-            mwg = rpe.MWG(ones(1,4).*.2, lik, pr, thminit);
+            mwg = rpe.MWG(ones(1,4).*.2, llik, lpr, thminit);
             
-            mwg.nmh = 500;
-            mwg.nbi = 50;
-            mwg.nbatch = 25;
+            mwg.nmh = obj.samp_per_chain;
+            mwg.nbi = obj.warmup_per_chain;
+            mwg.nbatch = obj.batch_update;
             
             t0 = tic;
-            [theta, thlik, thprior] = mwg.sample();
+            
+            g = gcp();
+            n_chain = g.NumWorkers;
+            
+            parfor i = 1:n_chain
+                [thetac{i}, thlikc{i}, thpriorc{i}] = mwg.sample();
+            end
+            theta = cat(1, thetac{:});
             obj.trace = theta;
-            obj.trace_lik = thlik;
-            obj.trace_prior = thprior;
+            obj.trace_lik = cat(1, thlikc{:});
+            obj.trace_prior = cat(1, thpriorc{:});
             fprintf(1, 'Sampling took %f s.\n', toc(t0));
             
             if obj.diag
@@ -174,6 +194,20 @@ classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
             
             % doing this without the log results in numerical underflow.
             llik = sum(log(p_resp(bp))) + sum(log(1-p_resp(~bp)));
+        end
+        function l = xloglikelihood(obj, hr, exg, bp)
+            % Transforms hr and exg back into native format then computes
+            % log likelihood. See also RSVPPerformanceBayes.logLikelihood
+            
+            hr = obj.logistic(hr);
+            far = obj.hrfun(hr);
+            exg = exp(exg);
+            
+            if hr>1 || hr<0 || far>1 || far<0 || any(exg<=0)
+                l = -inf;
+            else
+                l = obj.logLikelihood(hr, far, exg, bp);
+            end
         end
     end
     
@@ -310,3 +344,18 @@ classdef RSVPPerformanceBayes < rpe.RSVPPerformanceEstimator
         end
     end
 end
+
+% Copyright notice
+%    Copyright 2018 Benjamin T. Files
+% 
+%    Licensed under the Apache License, Version 2.0 (the "License");
+%    you may not use this file except in compliance with the License.
+%    You may obtain a copy of the License at
+% 
+%        http://www.apache.org/licenses/LICENSE-2.0
+% 
+%    Unless required by applicable law or agreed to in writing, software
+%    distributed under the License is distributed on an "AS IS" BASIS,
+%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+%    implied. See the License for the specific language governing
+%    permissions and limitations under the License.

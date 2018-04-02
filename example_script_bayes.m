@@ -1,5 +1,9 @@
 %% Overview
-% This script shows an example of how to use the RSVPPerformanceMAP.
+% This script shows an example of how to use the RSVPPerformanceBayes.
+%
+% Note, this is for testing more than demonstration, as it is usually
+% preferable to use the much faster RSVPPerformanceMLE. In fact, using
+% RSVPPerformanceBayes directly is almost certainly a bad idea.
 %
 % The bulk of the script simulates an RSVP target detection experiment.  To
 % use this code with your data, you need to setup the following three
@@ -10,10 +14,19 @@
 %               false otherwise.
 % button_time:  The time (again, in seconds) of button press starts.
 %
-% then initialize the estimator like so:
-% m = rpe.RSVPPerformanceMAP(stim_time, stim_label, button_time);
-% and run the estimator:
-% [hr, far] = m.estimatePerformance;
+% then initialize the estimator like so: 
+%
+% m = rpe.RSVPPerformanceBayes(stim_time, stim_label, button_time);
+%
+% and run the estimator: 
+%
+% [hr, far] = m.estimatePerformance; 
+%
+% This will take a while; on a fast, 24 core machine it would take most of
+% a day to do this with any reasonable chain length. This uses a custom
+% Metropolis-within-Gibbs sampler rpe.MWG, which is not particularly fast.
+% The likelihood computation is slow, but if it could be encoded in e.g.
+% Stan, the compiled version would probably operate much faster.
 %
 
 %% Simulation settings
@@ -96,19 +109,13 @@ button_time = sort([hit_responses fa_responses]);
 % stem(nt_times, ones(size(nt_times)), 'g', 'marker', 'none');
 % stem(button_time, 1.1 * ones(size(button_time)), 'k', 'marker', 'none');
 % 
-%% Run the MLE estimate:
-m = rpe.RSVPPerformanceMAP(stim_time, stim_label, button_time);
-m.time_resolution = 0.01;
+%% Run the Bayesian estimate:
+m = rpe.RSVPPerformanceBayes(stim_time, stim_label, button_time);
+m.time_resolution = 0.1;
 
-m.use_prior = false; 
-% set m.use_prior to true for MAP -- the built-in priors are sort of
-% generically reasonable, but for any real application they should be
-% considered carefully.
-%
-% MAP should be better than MLE if the priors are right, although the
-% performance of the MAP flavor has not been extensively characterized.
-
-m.diag = false;
+m.samp_per_chain = 100;
+m.warmup_per_chain = 100;
+m.batch_update = 20;
 
 [hr, far] = m.estimatePerformance();
 

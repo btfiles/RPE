@@ -1,5 +1,7 @@
 classdef MWG < handle
     % Implements metropolis-within-gibbs sampling
+    %
+    % Converted to log likelihood calcs, but needs testing.
     
     properties
         nmh = 5000; % number of samples
@@ -15,8 +17,8 @@ classdef MWG < handle
         qsdinit % initial proposal distribution sd
         qminit  % mean of initial proposal distribution
         dim     % number of dimensions on theta
-        lfcn    % likelihood function
-        pfcn    % prior function
+        lfcn    % log likelihood function
+        pfcn    % log prior function
     end
     
     properties
@@ -25,7 +27,7 @@ classdef MWG < handle
     end
     
     methods
-        function obj = MWG(initial_proposal_sd, likelihood_fcn, prior_fcn, initial_proposal_m)
+        function obj = MWG(initial_proposal_sd, log_likelihood_fcn, log_prior_fcn, initial_proposal_m)
             % obj = MWG(initial_proposal_sd, likelihood_fcn, prior_fcn)
             %
             
@@ -39,8 +41,8 @@ classdef MWG < handle
             
             obj.qsdinit = initial_proposal_sd;
             obj.dim = numel(initial_proposal_sd);
-            obj.lfcn = likelihood_fcn;
-            obj.pfcn = prior_fcn;
+            obj.lfcn = log_likelihood_fcn;
+            obj.pfcn = log_prior_fcn;
             
             if nargin >= 4
                 obj.qminit = initial_proposal_m;
@@ -49,10 +51,10 @@ classdef MWG < handle
             end
             
         end
-        function p = prior(obj, theta)
+        function p = logprior(obj, theta)
             p = obj.pfcn(obj.redim(theta));
         end
-        function l = likelihood(obj, theta)
+        function l = loglikelihood(obj, theta)
             l = obj.lfcn(obj.redim(theta));
         end
         function r = qrnd(obj, idx)
@@ -73,28 +75,28 @@ classdef MWG < handle
             th = th(:)';
         end
         
-        function [p, lik2, prior2] = alph(obj, theta1, theta2)
-            % Probability of accepting a move from theta1 to theta2
-            % also returns likelihood and prior of theta2, to avoid
+        function [p, llik2, lprior2] = alph(obj, theta1, theta2)
+            % Probability of accepting a move from theta1 to theta2 also
+            % returns loglikelihood and logprior of theta2, to avoid
             % re-computing
             
             theta1 = obj.redim(theta1);
             theta2 = obj.redim(theta2);
             
-            lik2 = obj.likelihood(theta2);
-            prior2 = obj.prior(theta2);
+            llik2 = obj.loglikelihood(theta2);
+            lprior2 = obj.logprior(theta2);
             
-            numerator = lik2*prior2;
-            denominator = obj.likelihood(theta1)*obj.prior(theta1);
+            numerator = llik2 + lprior2;
+            denominator = obj.loglikelihood(theta1) + obj.logprior(theta1);
             
-            if denominator==0
+            if denominator==-inf
                 p = 1;
             else
-                p = min(1, numerator./denominator);
+                p = min(1, exp(numerator - denominator));
             end
         end
         
-        function [thg, lik_thg, prior_thg, thj] = sample(obj)
+        function [thg, llik_thg, lprior_thg, thj] = sample(obj)
             % Draws samples from posterior distribution using
             % metropolis-within-gibbs.
             % [thg, like_thg, prior_thg, thj] = sample(obj)
@@ -107,8 +109,8 @@ classdef MWG < handle
             % setup storage
             thg = zeros(ns, nd);
             thj = zeros(ns, nd);
-            lik_thg = zeros(ns, nd);
-            prior_thg = zeros(ns, nd);
+            llik_thg = zeros(ns, nd);
+            lprior_thg = zeros(ns, nd);
             obj.rej = false(ns, nd);
             
             % set initial values
@@ -116,8 +118,8 @@ classdef MWG < handle
 %             thg(1, :) = reshape(arrayfun(@(m, sd) normrnd(0, sd), obj.qminit, obj.qsd), ...
 %                 1,[]); % Take an initial draw
             thg(1,:) = obj.qminit;
-            lik_thg(1, :) = repmat(obj.likelihood(thg(1,:)), 1, nd);
-            prior_thg(1, :) = repmat(obj.prior(thg(1,:)), 1, nd);
+            llik_thg(1, :) = repmat(obj.loglikelihood(thg(1,:)), 1, nd);
+            lprior_thg(1, :) = repmat(obj.logprior(thg(1,:)), 1, nd);
             
             % start iterating
             for i = 2:ns
@@ -143,8 +145,8 @@ classdef MWG < handle
                         pri = i;
                     end
                     
-                    prev_lik = lik_thg(pri, prj);
-                    prev_prior = prior_thg(pri, prj);
+                    prev_lik = llik_thg(pri, prj);
+                    prev_prior = lprior_thg(pri, prj);
                     
                     thj(i, j) = obj.qrnd(j);
                     
@@ -156,17 +158,17 @@ classdef MWG < handle
                     if rand() < prop_alph
                         % make the move
                         thg(i, j) = prop_thg(j);
-                        lik_thg(i, j) = prop_lik;
-                        prior_thg(i, j) = prop_prior;
+                        llik_thg(i, j) = prop_lik;
+                        lprior_thg(i, j) = prop_prior;
                     else
                         thg(i, j) = prev_thg(j);
-                        lik_thg(i, j) = prev_lik;
-                        prior_thg(i, j) = prev_prior;
+                        llik_thg(i, j) = prev_lik;
+                        lprior_thg(i, j) = prev_prior;
                         obj.rej(i, j) = true;
                     end
                 end
             end
-            [thg, lik_thg, prior_thg, thj] = obj.burn(thg, lik_thg, prior_thg, thj);
+            [thg, llik_thg, lprior_thg, thj] = obj.burn(thg, llik_thg, lprior_thg, thj);
         end % function
         function varargout = burn(obj, varargin)
             idx = (obj.nbi+1):(obj.nbi+obj.nmh);
@@ -180,3 +182,18 @@ classdef MWG < handle
         end
     end % methods
 end % classdef
+
+% Copyright notice
+%    Copyright 2018 Benjamin T. Files
+% 
+%    Licensed under the Apache License, Version 2.0 (the "License");
+%    you may not use this file except in compliance with the License.
+%    You may obtain a copy of the License at
+% 
+%        http://www.apache.org/licenses/LICENSE-2.0
+% 
+%    Unless required by applicable law or agreed to in writing, software
+%    distributed under the License is distributed on an "AS IS" BASIS,
+%    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+%    implied. See the License for the specific language governing
+%    permissions and limitations under the License.
