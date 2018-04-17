@@ -5,8 +5,21 @@
 % presentation target detection experiments.  Performance is summarized as
 % hit rate (HR) and false alarm rate (FAR).
 %
-% This package should be distributed with an example (example_script.m)
-% that illustrates its use.
+% There is also an implementation of the maximum likelihood estimator
+% described in Canady, Marathe, Herman & Files (2018). The MLE method
+% is somewhat more accurate than the regression method, but takes longer to
+% run.
+%
+% The package also includes code implementing both a maximum a-posteriori
+% method and a fully Bayesian method that returns distribution estimates of
+% all performance parameters. The MAP method works about as well as the MLE
+% method as long as the priors are reasonable. The fully Bayesian method
+% uses adaptive Metropolis sampling to approximate the posterior
+% distribution. It is incredibly slow and is not well-tested, so its use is
+% not encouraged.
+%
+% This package should be distributed with examples (example_script.m,
+% example_script_mle.m, example_script_bayes.m) that illustrate its use.
 %
 % Example
 %   e = rpe.RSVPPerformanceEstimator(stim_time, stim_lbl, button_time);

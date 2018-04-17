@@ -1,13 +1,20 @@
-A software package implementing the regression method for estimating 
-performance in a rapid serial visual presentation target detection task of 
-Files & Marathe (2016).
+A software package for for estimating performance in rapid serial visual 
+presentation target detection tasks. Includes an implementation of the 
+regression method of Files & Marathe (2016). Also includes the maximum 
+likelihood estimation method described in our forthcoming presentation at 
+HCII 2018.
 
-If you use this code for any publication, please cite the following paper:
+If you use this code for any publication, please cite the appropriate 
+paper:
 
 Files, B. T., & Marathe, A. R. (2016). A regression method for estimating 
     performance in a rapid serial visual presentation target detection 
     task. Journal of Neuroscience Methods, 258, 114-123. 
     http://doi.org/10.1016/j.jneumeth.2015.11.003
+
+and/or
+
+Canady, Marathe, Herman, Files (2018) HCII conference proceedings.
 
 
 This project was supported by The U.S. Army Research Laboratory under a
