@@ -53,8 +53,11 @@ classdef RSVPPerformanceEstimator < handle
         time_resolution = 0.001; % resolution of PDF approximation
         response_window = [0.0 1.0]; % response time window for RT estimates
         pdf_support = 1.5; % how long after the stimulus to compute RT PDF
+<<<<<<< HEAD
         
         t; % member variable for keeping track of experiment time
+=======
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
     end
     
     properties (GetAccess=public, SetAccess=protected)
@@ -78,7 +81,11 @@ classdef RSVPPerformanceEstimator < handle
     methods
         function obj = RSVPPerformanceEstimator(varargin)
             % Takes 3 arguments: stim_time, stim_lbl, buttonpress_time.
+<<<<<<< HEAD
             if nargin == 0
+=======
+            if nargin == 0,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                 return
             end
             
@@ -94,6 +101,7 @@ classdef RSVPPerformanceEstimator < handle
         end
         function [hr, far, hrci, farci] = runEstimates(obj, cialpha)
             % Estimate the rt pdf, HR and FAR.
+<<<<<<< HEAD
             % [hr, far] = runEstimates(obj)
             %
             % [hr, far, hrci, farci] = runEstimates(obj, cialpha) also
@@ -102,13 +110,26 @@ classdef RSVPPerformanceEstimator < handle
             % See also estimatePdf estimatePerformance
             
             if nargin < 2
+=======
+            % [hr, far] = updateEstimates()
+            %
+            % See also estimatePdf estimatePerformance
+            
+            if nargin < 2,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                 cialpha = .05;
             end
             
             obj.estimatePdf;
+<<<<<<< HEAD
             if nargout == 2
                 [hr, far] = obj.estimatePerformance;
             elseif nargout == 4
+=======
+            if nargout == 2,
+                [hr, far] = obj.estimatePerformance;
+            elseif nargout == 4,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                 [hr, far, hrci, farci] = obj.estimatePerformance(cialpha);
             end
         end
@@ -141,6 +162,7 @@ classdef RSVPPerformanceEstimator < handle
             % deviation of the normal distribution.
             %
             % These values are fit using maximum likelihood estimation.
+<<<<<<< HEAD
             [M, S, T] = rpe.fitExGauss(obj.rt_list);
             obj.setPdf([M, S, T])
         end
@@ -155,6 +177,15 @@ classdef RSVPPerformanceEstimator < handle
             
             rtt = obj.time_resolution:obj.time_resolution:obj.pdf_support;
             obj.pdf_est = obj.pdf_fcn(rtt);
+=======
+            [obj.mu,obj.sigma,obj.tau] = rpe.fitExGauss(obj.rt_list);
+            obj.pdf_fcn = @(rt) rpe.exGaussPdf(rt, ...
+                obj.mu,obj.sigma,obj.tau);
+            
+            %% build a density approximation at requested resolution
+            t = obj.time_resolution:obj.time_resolution:obj.pdf_support;
+            obj.pdf_est = obj.pdf_fcn(t);
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
         end
         function [HR, FAR, HRCI, FARCI] = estimatePerformance(obj, alph)
             % Estimate HR and FAR
@@ -167,10 +198,17 @@ classdef RSVPPerformanceEstimator < handle
             
             % Solve for HR and FAR
             %o = obj.beta\[obj.response_scores]';
+<<<<<<< HEAD
             if nargout == 2
                 o = regress(obj.response_scores', obj.beta);
             else
                 if nargin < 2
+=======
+            if nargout == 2,
+                o = regress(obj.response_scores', obj.beta);
+            else
+                if nargin < 2,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                     alph = .05;
                 end
                 [o, ci] = regress(obj.response_scores', obj.beta, alph);
@@ -182,6 +220,7 @@ classdef RSVPPerformanceEstimator < handle
             FAR = o(2);
             
             % Correct HR/FAR
+<<<<<<< HEAD
             if HR > 1
                 HR = 1;
             elseif HR < 0
@@ -190,6 +229,16 @@ classdef RSVPPerformanceEstimator < handle
             if FAR > 1
                 FAR = 1;
             elseif FAR < 0
+=======
+            if HR > 1,
+                HR = 1;
+            elseif HR < 0,
+                HR = 0;
+            end
+            if FAR > 1,
+                FAR = 1;
+            elseif FAR < 0,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                 FAR = 0;
             end
         end
@@ -216,12 +265,17 @@ classdef RSVPPerformanceEstimator < handle
             %% find stimuli labeled as targets
             tar_times = obj.stimulus_times(obj.stimulus_labels==true);
             %% build a vector of response times
+<<<<<<< HEAD
             rts = zeros(size(tar_times), class(tar_times));
+=======
+            rts = zeros(size(tar_times));
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
             bpt = obj.buttonpress_times;
             rw = obj.response_window;
             % Note: creating local versions of these variables allows
             % faster parallel execution.
             
+<<<<<<< HEAD
             parfor iTar = 1:numel(tar_times)
                 tt = tar_times(iTar);
                 resp_idx = find(bpt < tt+rw(2) & bpt > tt+rw(1)); %#ok
@@ -229,6 +283,15 @@ classdef RSVPPerformanceEstimator < handle
                     %miss.
                     continue
                 elseif numel(resp_idx)>1
+=======
+            parfor iTar = 1:numel(tar_times),
+                tt = tar_times(iTar);
+                resp_idx = find(bpt < tt+rw(2) & bpt > tt+rw(1)); %#ok
+                if numel(resp_idx) == 0,
+                    %miss.
+                    continue
+                elseif numel(resp_idx)>1,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
 %                     warning('RPE:BuildRTDist:MultiResponse',...
 %                         ['The stimulus at time %f is followed by more ',...
 %                         'than one responses (%d). Taking only the ',...
@@ -256,7 +319,11 @@ classdef RSVPPerformanceEstimator < handle
             l_pdf_fcn = obj.pdf_fcn;
             l_pdf_support = obj.pdf_support;
             
+<<<<<<< HEAD
             parfor iStim = 1:numel(ost)
+=======
+            parfor iStim = 1:numel(ost),
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                 % get si, the stim of interest and sj, the list of stimuli
                 % whos responses could be attributed to si
                 si = ost(iStim);
@@ -269,12 +336,17 @@ classdef RSVPPerformanceEstimator < handle
                 % as hit contributions and fa contributions.
                 b1 = 0;
                 b2 = 0;
+<<<<<<< HEAD
                 for jNeighbor = 1:numel(neighbor_times)
+=======
+                for jNeighbor = 1:numel(neighbor_times),
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                     sj = neighbor_times(jNeighbor);
                     % figure out times of responses that could be generated
                     % by sj and could contribute to attribution of si
                     t_min = max(si, sj);
                     t_max = min(si+mxrt, sj+mxrt);
+<<<<<<< HEAD
                     lt = t_min:tr:t_max;
                     
                     % now compute attribution for each t
@@ -286,6 +358,19 @@ classdef RSVPPerformanceEstimator < handle
                     
                     lbl = neighbor_labels(jNeighbor);
                     if lbl
+=======
+                    t = t_min:tr:t_max;
+                    
+                    % now compute attribution for each t
+                    a = att(t,si, l_pdf_fcn, ost, l_pdf_support); %#ok
+                    
+                    % compute the contribution to si of a response
+                    % by sj conditioned on a response by sj.
+                    e = sum(tr.*l_pdf_fcn(t-sj).*a);
+                    
+                    lbl = neighbor_labels(jNeighbor);
+                    if lbl,
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                         b1 = b1+e;
                     else
                         b2 = b2+e;
@@ -299,17 +384,30 @@ classdef RSVPPerformanceEstimator < handle
         function buildResponseScores(obj)
             % Attribute each response to possible evoking stimuli.
             obj.response_scores = zeros(size(obj.stimulus_times));
+<<<<<<< HEAD
             for iResp = 1:numel(obj.buttonpress_times)
                 lt = obj.buttonpress_times(iResp);
                 candidate_idx = obj.stimulus_times < lt & ...
                     obj.stimulus_times > lt - obj.pdf_support;
                 
                 if ~any(candidate_idx)
+=======
+            for iResp = 1:numel(obj.buttonpress_times),
+                t = obj.buttonpress_times(iResp);
+                candidate_idx = obj.stimulus_times < t & ...
+                    obj.stimulus_times > t - obj.pdf_support;
+                
+                if ~any(candidate_idx),
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                     % Rogue buttonpress.
                     continue;
                 end
                 
+<<<<<<< HEAD
                 st = lt-obj.stimulus_times(candidate_idx);
+=======
+                st = t-obj.stimulus_times(candidate_idx);
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
                 lik = obj.pdf_fcn(st);
                 scores = lik./sum(lik);
                 obj.response_scores(candidate_idx) = scores + ...

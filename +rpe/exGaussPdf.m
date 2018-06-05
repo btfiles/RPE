@@ -25,6 +25,7 @@ mu = ip.Results.mu;
 s = ip.Results.s;
 tau = ip.Results.tau;
 
+<<<<<<< HEAD
 % check for overflow FIXME -- maybe switch to normal if tau is small?
 % tmp = mu/tau + s^2/(2*tau.^2) - x/tau;
 % maxtmp = log(realmax);
@@ -52,21 +53,46 @@ else
 end
 
 if any (p<=eps)
+=======
+% check for overflow
+tmp = mu/tau + s^2/(2*tau.^2) - x/tau;
+maxtmp = log(realmax);
+if any(tmp>=maxtmp),
+    warning('RPE:ExGaussPdf:BigExpPart',...
+        'A value exceeded max allowed.  Results will be approximate.');
+    tmp(tmp>=maxtmp) = maxtmp/100;
+end
+
+% compute the pdf
+pE = exp(tmp);
+pG = normcdf( (x - mu - (s.^2/tau))/abs(s));
+p = (1/tau).*pE.*pG;
+
+if any (p<=eps),
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
     p(p<=eps) = eps;
 end
 end
 
 function ok = checkInput(v)
+<<<<<<< HEAD
 checks = [isnumeric(v),~isnan(v),~isinf(v),v>0];
 if any(~checks)
     warning('Failed check %d!', find(~checks, 1));
 end
 ok = all(checks);
+=======
+ok = all([isnumeric(v),~isnan(v),~isinf(v),v>0]);
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
 end
 
 
 % Copyright notice
+<<<<<<< HEAD
 %    Copyright 2018 Benjamin T. Files
+=======
+%    Copyright 2016 Benjamin T. Files
+>>>>>>> 9f58c9edaa474679c7fb5c2095a63115e863e109
 % 
 %    Licensed under the Apache License, Version 2.0 (the "License");
 %    you may not use this file except in compliance with the License.
